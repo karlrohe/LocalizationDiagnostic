@@ -22,8 +22,8 @@ plotDegLev= function(degree, leverage, n = 100000){
     ggplot(aes(x=degree, y= leverage)) +
     geom_point(alpha = .05)+
     geom_smooth(se = F, method = "gam")+ 
-    ylim(m,M) +
-    scale_x_log10() + scale_y_log10() 
+    scale_x_log10() + scale_y_log10(limits = c(m,M))
+ 
 }
 
 
