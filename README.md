@@ -4,13 +4,29 @@ Karl Rohe
 7/17/2020
 
 This creates a plot to diagnose localization in the spectral analysis of
-graphs. Here is a simple simulation to illustrate the code.
+graphs. The function is called `plotDegLevReg`. In this plot, each node
+is a point. The x-axis gives the nodes degree (on the log scale). The
+y-axis represents the leverage (on the log scale). However, it is
+actually the residuals in an OLS of log(leverage) ~ log(degree). That
+model is only fit using nodes of degree 5 or larger. There is a GAM
+added for nodes with degree 7 or larger.
 
-First load the functions in
-KeyFunctionsForDiagnosticPlots.R.
+If the blue line curls up on the right side of the plot, then this
+diagnostic indicates localization on the high degree nodes.
+
+If there appear to be more than one “cluster” on the left side of the
+plot, then this diagnostic indicates localization on the low degree
+nodes.
+
+Here are some simulations to illustrate the code and the interpretation
+of the diagnostic.
+
+First, load the functions in KeyFunctionsForDiagnosticPlots.R.
 
 ``` r
-source("https://raw.githubusercontent.com/karlrohe/LocalizationDiagnostic/master/KeyFunctionsForDiagnosticPlots.R")
+# print(1)
+source("KeyFunctionsForDiagnosticPlots.R")
+# source("https://raw.githubusercontent.com/karlrohe/LocalizationDiagnostic/master/KeyFunctionsForDiagnosticPlots.R")
 ```
 
 ``` r
@@ -22,14 +38,25 @@ library(rARPACK)
 ```
 
 In this simulation, feel free to adjust the average node degree, number
-of nodes, and distribution of the graph.
+of nodes, and distribution of the graph. Throughout, we will simulate
+10,000 node graphs. We will start with average degree 30, then switch to
+average degree 4 later.
 
 ``` r
 avg_deg = 30
 n = 10^4
+```
 
-theta = rexp(n)^2  # this is the shape of the degree distribution.
+## What happens in a null model, where the rank of E(A) is 1?
+
+First, we simulate from the Chung-Lu model, where each node \(i\) gets a
+ Exponential(1)$ and \(A_{ij} ~ Poisson(\lambda= c \theta_i \theta_j)\).
+Here, \(E(A) = c\theta \theta^T\) is rank 1. The constant \(c\) is
+chosen so that the average degree is `avg_deg = 30`.
+
+``` r
 set.seed(1)
+theta = rexp(n)^2  # this is the shape of the degree distribution.
 A =chung_lu(theta, avg_deg = avg_deg, simple = T)+0
 ```
 
@@ -45,53 +72,64 @@ ei = eigs(A, 5)
 leverage = rowSums(ei$vectors^2)
 ```
 
-The diagnostic plot function is called `plotDegLev`. It is computed with
-the degree and the leverage.
+The diagnostic plot function is called `plotDegLevReg`. It is computed
+with the degree and the leverage.
 
 ``` r
-plotDegLev(degree, leverage)
-```
-
-![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
-
-In this simulation, the line bends up. This indicates localization
-(bad\!) on the high degree nodes. We also see some localization on some
-low degree nodes because there is more than one “cluster” of leverage
-scores for the low degree nodes. These clusters appear as separate point
-clouds. This localization is an artifact of noise. It does not represent
-“signal”.
-
-Instead of computing leverage on all of the eigenvectors, you can do it
-for each eigenvector individually. Often when there is localization, not
-all of the eigenvectors localize, only some.
-
-You can compute the \`\`leverage’’ of one eigenvector by squaring each
-element of the vector.
-
-``` r
-leverage = ei$vectors[,1]^2
-plotDegLev(degree, leverage)
+plotDegLevReg(degree, leverage)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
-In this simulation, the first eigenvector does not localize\! You can
-see that all of the points are nicely on a straight line, both at low
-degree and high degree. However, the second/third do localize.
+In this simulation, the blue line bends up. This indicates localization
+on the high degree nodes. We also see more than one “cluster” of
+leverage scores for the low degree nodes **and this cluster does not
+extend to high degree nodes**. This indicates localization on some low
+degree nodes. The localization is an artifact of noise. It does not
+represent “signal”. In a later simulation, we will see that sometimes
+this cluster extends to high degree nodes. In that case, the cluster
+does not necessarily imply localization.
+
+When localization is detected in the above plot, not all of the
+eigenvectors necessarily localize. Instead of computing the leverage on
+all of the eigenvectors as above, you can do it for each eigenvector
+individually. You can compute the \`\`leverage’’ of one eigenvector by
+squaring each element of the vector.
 
 ``` r
-leverage = ei$vectors[,2]^2
-plotDegLev(degree, leverage)
+leverage = ei$vectors[,1]^2
+plotDegLevReg(degree, leverage)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
+In this simulation, the first eigenvector does not appear to localize.
+The blue line tends down. As far as we know so far, this is ok. It
+certainly does not indicate localization on high degree nodes. Perhaps
+it is something else to be discovered. For the low degree nodes, there
+does not appear to be separate clusters of points. So, there does not
+appear to be localization on the low degree nodes. However, the next
+plot suggests that eigenvectors 2, 3, 4, and 5 are all localized.
+
 ``` r
-leverage = ei$vectors[,3]^2
-plotDegLev(degree, leverage)
+library(ggpubr)
+p2 = plotDegLevReg(degree, ei$vectors[,2]^2)
+p3 = plotDegLevReg(degree, ei$vectors[,3]^2)
+p4 = plotDegLevReg(degree, ei$vectors[,4]^2)
+p5 = plotDegLevReg(degree, ei$vectors[,5]^2)
+
+
+
+ggarrange(p2,p3,p4,p5, labels = c("2", "3", "4", "5"))
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-7-2.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+In the second eigenvector, there is localization on the low degree
+nodes, but there does not appear to be localization on the high degree
+nodes. In the third eigenvector it is the reverse (localized on high,
+not on low). The fourth matches the second. The fifth displays both
+localization on low and high degree nodes.
 
 You can also make these plots for the regularized graph Laplacian. This
 can give different results\! In this case, it does give different
@@ -102,16 +140,246 @@ ei = eigsL(A, 5)  # eigsL is defined in KeyFunctionsForDiagnosticPlots.R
 leverage = rowSums(ei$vectors^2)
 
 # This plot does not display that upward tilt.
-plotDegLev(degree, leverage)
+plotDegLevReg(degree, leverage)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 The eigenvectors of the regularized graph Laplacian do not localize in
 this simulation. We see this because the line bends down. This is
 great\! Bending up reveals localization. Bending down is ok (as far as I
-know\!).
+know\!). This diagnostic was computed with all of the top 5
+eigenvectors. Because it did not indicate localization, we do not expect
+any of the individual eigenvectors to localize. Indeed, that is what we
+see in the next visualization.
 
-The leverage computed with all of the eigenvectors revealed that there
-is no localization. As such, it is not necessary to compute it with each
-individual eigenvector (as was done above).
+``` r
+library(ggpubr)
+p1 = plotDegLevReg(degree, ei$vectors[,1]^2)
+p2 = plotDegLevReg(degree, ei$vectors[,2]^2)
+p3 = plotDegLevReg(degree, ei$vectors[,3]^2)
+p4 = plotDegLevReg(degree, ei$vectors[,4]^2)
+p5 = plotDegLevReg(degree, ei$vectors[,5]^2)
+
+
+
+ggarrange(p1, p2,p3,p4,p5, labels = c("1","2", "3", "4", "5"))
+```
+
+![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+
+## What happens in a DC-SBM, where the rank of E(A) is 5?
+
+#### First, we are going to take eigs(A).
+
+Here again, where each node \(i\) gets the same
+\(\sqrt{\theta_i} \sim Exponential(1)\) as above. This time each node is
+also assigned to one of 5 classes \(z(i) \in \{1, \dots, 5\}\) with
+equal probability and
+\(A_{ij} ~ Poisson(\lambda= \theta_i \theta_j B_{z(i) z(j)})\), where
+\(B \in \mathbb{R}^{5 \times 5}\) is constant along the diagonal and off
+diagonal. Here, \(E(A)\) is rank 5.
+
+First, we will do this simulation with `avg_deg = 30`. Then, we will set
+`avg_deg = 4`.
+
+``` r
+K = 5
+SNR = 2
+B = diag(rep(SNR*K, K)) + matrix(1, nrow =K, ncol=K)
+A = dcsbm(theta = theta, B = B, pi = rep(1, K), avg_deg = avg_deg, simple = T, sort_nodes = T)+0
+```
+
+Here is the diagnostic.
+
+``` r
+ei = eigs(A, k = 10)
+degree = rowSums(A)
+leverage  = rowSums(ei$vec^2)
+plotDegLevReg(degree,leverage)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-12-1.png)<!-- --> This
+displays strong evidence of localization on high degree nodes. There is
+a hint of localization on low degree nodes. Now, we will decompose this
+to see how the various eigenvectors contribute to the leverage. The
+first plot is the leverage of eigenvectors 1:5. Then, 2. Then, 3. Then,
+6:10. Then, 6. Then, 7.
+
+``` r
+psignal = plotDegLevReg(degree, rowSums(ei$vec[,1:5]^2))
+p2 = plotDegLevReg(degree, ei$vectors[,2]^2)
+p3 = plotDegLevReg(degree, ei$vectors[,3]^2)
+pnoise = plotDegLevReg(degree, rowSums(ei$vec[,-(1:5)]^2))
+pnoise6 =  plotDegLevReg(degree, ei$vectors[,6]^2)
+pnoise7 =  plotDegLevReg(degree, ei$vectors[,7]^2)
+
+
+ggarrange(psignal, p2,p3,
+          pnoise, pnoise6, pnoise7, labels = c("top5", "2", "3", "6:10", "6","7"))
+```
+
+![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+
+Notice that eigenvectors 2 and 3 have separation on the high degree
+nodes. This does not indicate localization. This indicates that the
+eigenvector has identified a cluster. However, 6:10 displays some
+separation on the low degree nodes. Both 6 and 7 display localization on
+high degree nodes. Look closely at 7 to see that the blue line has
+failed to detect the upward tail on the right side\! That is still
+localization.
+
+In this simulation we know that (up to) 5 eigenvectors can estimate
+signal (K=5). What we see here is that the top 5 eigenvectors are not
+localized, while the next eigenvectors are localized (i.e. noise).
+
+Here are the eigenvectors 2,3,4,5,6,7, ordered by blocklabel and
+\(\theta\).
+
+``` r
+par(mfrow = c(2,3))
+for(j in c(2,3,4,5,6,7)) plot(ei$vectors[,j], pch  = ".", main = j)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+
+#### Now, we are going to take eigs(L), for the regularized Laplacian.
+
+Here, we continue to witness separation on high degree nodes. This is
+ok\! In fact, it is good\! It indicates that the eigenvector found a
+cluster. If you do see separate clusters on the high degree nodes, this
+diagnostic should not be used for estimating the number of clusters.
+
+Using the adjacency matrix in the previous figures, the noise
+eigenvectors localized. Here, using the regularized matrix L, the noise
+eigenvectors do not localize.
+
+``` r
+ei = eigsL(A, k = 10)
+degree = rowSums(A)
+leverage  = rowSums(ei$vec^2)
+plotDegLevReg(degree,leverage)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
+
+``` r
+library(ggpubr)
+
+psignal = plotDegLevReg(degree, rowSums(ei$vec[,1:5]^2))
+p2 = plotDegLevReg(degree, ei$vectors[,2]^2)
+p3 = plotDegLevReg(degree, ei$vectors[,3]^2)
+pnoise = plotDegLevReg(degree, rowSums(ei$vec[,-(1:5)]^2))
+pnoise6 =  plotDegLevReg(degree, ei$vectors[,6]^2)
+pnoise7 =  plotDegLevReg(degree, ei$vectors[,7]^2)
+
+
+ggarrange(psignal, p2,p3,
+          pnoise, pnoise6, pnoise7, labels = c("top5", "2", "3", "6:10", "6","7"))
+```
+
+![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+
+``` r
+par(mfrow = c(2,3))
+for(j in c(2,3,4,5,6,7)) plot(ei$vectors[,j], pch  = ".", main = j)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+
+# Repeat the DC-SBM simulation with avg\_deg = 4.
+
+``` r
+avg_deg = 4
+
+A = dcsbm(theta = theta, B = B, pi = rep(1, K), avg_deg = avg_deg, simple = T, sort_nodes = T)+0
+```
+
+Here is the diagnostic.
+
+``` r
+ei = eigs(A, k = 10)
+degree = rowSums(A)
+leverage  = rowSums(ei$vec^2)
+plotDegLevReg(degree,leverage)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+
+This suggests localization on low and high degree nodes. Let’s decompose
+this to see how the various eigenvectors contribute to this diagnostic.
+
+``` r
+library(ggpubr)
+
+psignal = plotDegLevReg(degree, rowSums(ei$vec[,1:5]^2))
+p2 = plotDegLevReg(degree, ei$vectors[,2]^2)
+p3 = plotDegLevReg(degree, ei$vectors[,3]^2)
+pnoise = plotDegLevReg(degree, rowSums(ei$vec[,-(1:5)]^2))
+pnoise6 =  plotDegLevReg(degree, ei$vectors[,6]^2)
+pnoise7 =  plotDegLevReg(degree, ei$vectors[,7]^2)
+
+
+ggarrange(psignal, p2,p3,
+          pnoise, pnoise6, pnoise7, labels = c("top5", "2", "3", "6:10", "6","7"))
+```
+
+![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+
+There is no indication of localization in the leading 5 eigenvectors.
+Notice that eigenvector 2 has separation on the high degree nodes. This
+does not indicate localization. This indicates that the eigenvector has
+identified a cluster. However, 6:10, 6, and 7 all display separation on
+the low degree nodes and bending up on high degree nodes.
+
+In this simulation we know that up to 5 eigenvectors can estimate signal
+(K=5). What we see here is that the top 5 eigenvectors are not
+localized, while the next eigenvectors are localized (i.e. noise).
+
+Here are the eigenvectors 2,3,4,5,6,7, ordered by blocklabel and
+\(\theta\).
+
+``` r
+par(mfrow = c(2,3))
+for(j in c(2,3,4,5,6,7)) plot(ei$vectors[,j], pch  = ".", main = j)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+
+#### Now, we are going to take eigs(L), for the regularized Laplacian.
+
+In the previous simulation, there was no indication of localization for
+any of the eigenvectors of L. This pattern continues here.
+
+``` r
+ei = eigsL(A, k = 10)
+degree = rowSums(A)
+leverage  = rowSums(ei$vec^2)
+plotDegLevReg(degree,leverage)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+
+``` r
+library(ggpubr)
+
+psignal = plotDegLevReg(degree, rowSums(ei$vec[,1:5]^2))
+p2 = plotDegLevReg(degree, ei$vectors[,2]^2)
+p3 = plotDegLevReg(degree, ei$vectors[,3]^2)
+pnoise = plotDegLevReg(degree, rowSums(ei$vec[,-(1:5)]^2))
+pnoise6 =  plotDegLevReg(degree, ei$vectors[,6]^2)
+pnoise7 =  plotDegLevReg(degree, ei$vectors[,7]^2)
+
+
+ggarrange(psignal, p2,p3,
+          pnoise, pnoise6, pnoise7, labels = c("top5", "2", "3", "6:10", "6","7"))
+```
+
+![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+
+``` r
+par(mfrow = c(2,3))
+for(j in c(2,3,4,5,6,7)) plot(ei$vectors[,j], pch  = ".", main = j)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
