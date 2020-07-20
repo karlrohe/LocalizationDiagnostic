@@ -10,6 +10,11 @@
 # Blue line is flat. 
 # Then, edges are thresheld. Then, blue line curves down.
 
+library(fastRG)
+library(rARPACK)
+source("KeyFunctionsForDiagnosticPlots.R")
+
+
 set.seed(1)
 theta = rexp(n)^2  # this is the shape of the degree distribution.
 params <- chung_lu_params(theta)
