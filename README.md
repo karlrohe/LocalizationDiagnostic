@@ -3,20 +3,25 @@ A Localization Diagnostic for Spectral Graph Analysis
 Karl Rohe
 7/17/2020
 
-This creates a plot to diagnose localization in the spectral analysis of
-graphs. The function is called `plotDegLevReg`. In this plot, each node
-is a point. The x-axis gives the nodes degree (on the log scale). The
-y-axis represents the leverage (on the log scale). However, it is
-actually the residuals in an OLS of log(leverage) ~ log(degree). That
-model is only fit using nodes of degree 5 or larger. There is a GAM
-added for nodes with degree 7 or larger.
+This respository contains R code that creates a plot. This plot should
+be used to diagnose localization in the spectral analysis of graphs. The
+function is called `plotDegLevReg`. It takes a vector of node degrees
+and node leverage scores.
+
+In this plot, each node is represented as a point. The x-axis gives the
+node’s degree (on the log scale). The y-axis represents the node’s
+leverage (on the log scale). However, it is not the actual leverage
+score. Instead, it is the residual in an OLS of log(leverage) ~
+log(degree). For stability reasons, this model is only fit using the
+nodes with degree 5 or larger. The residuals are computed for all nodes
+with degree\>0. There is a blue smoothing line added for nodes with
+degree 7 or larger.
 
 If the blue line curls up on the right side of the plot, then this
-diagnostic indicates localization on the high degree nodes.
+indicates localization on the high degree nodes.
 
-If there appear to be more than one “cluster” on the left side of the
-plot, then this diagnostic indicates localization on the low degree
-nodes.
+If there appear to be more than one “cluster” of points on the left side
+of the plot, then this indicates localization on the low degree nodes.
 
 Here are some simulations to illustrate the code and the interpretation
 of the diagnostic.

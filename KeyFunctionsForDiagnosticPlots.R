@@ -50,7 +50,7 @@ plotDegLevReg= function(degree, leverage, n = 100000){
   dat %>% 
     ggplot(aes(x=degree, y= residuals)) +
     geom_point(alpha = .05)+
-    ggtitle(paste("lev~", round(fit$coefficients[1],2),  " x deg ^", round(fit$coefficients[2],2)))+
+    ggtitle(paste("   ", round(fit$coefficients[1],2),  " x deg ^", round(fit$coefficients[2],2)))+
     geom_smooth(se = F, method = "gam", data=subset(dat, degree >=7))+ 
     scale_x_log10() + ylim(m,M)
   
